@@ -1,6 +1,7 @@
 import streamlit as st
 from groq import Groq
 from supabase import create_client
+from datetime import datetime
 import uuid
 
 st.set_page_config(page_title="Học Tiếng Trung AI", page_icon="🏮")
@@ -22,31 +23,43 @@ with st.sidebar:
     level = st.selectbox("Cấp độ:", ["Mới bắt đầu", "HSK 1", "HSK 2", "HSK 3", "HSK 4+"])
 
     st.markdown("---")
-    if st.button("➕ Cuộc trò chuyện mới"):
+    if st.button("➕ Cuộc trò chuyện mới", use_container_width=True):
         st.session_state.session_id = str(uuid.uuid4())
         st.session_state.messages = []
         st.rerun()
 
-    st.markdown("**Lịch sử phiên học**")
+    st.markdown("---")
+    st.markdown("**🕐 Lịch sử phiên học**")
+
     try:
         sessions = supabase.table("chat_history") \
             .select("session_id, content, created_at") \
             .eq("role", "user") \
             .order("created_at", desc=True) \
             .execute()
+
         seen = []
         for row in sessions.data:
             sid = row["session_id"]
             if sid not in seen:
                 seen.append(sid)
+
+                dt = datetime.fromisoformat(row["created_at"].replace("Z", ""))
+                date_str = dt.strftime("%d/%m/%Y %H:%M")
                 label = row["content"][:28] + "..." if len(row["content"]) > 28 else row["content"]
                 prefix = "▶ " if sid == session_id else ""
-                if st.button(f"{prefix}{label}", key=f"sess_{sid}"):
+
+                if st.button(
+                    f"{prefix}{label}\n🕐 {date_str}",
+                    key=f"sess_{sid}",
+                    use_container_width=True
+                ):
                     st.session_state.session_id = sid
                     st.session_state.messages = []
                     st.rerun()
-    except Exception:
-        st.caption("Chưa có lịch sử.")
+
+    except Exception as e:
+        st.caption(f"Chưa có lịch sử.")
 
 SYSTEM_PROMPT = (
     "Bạn là giáo viên dạy tiếng Trung Quốc (Mandarin) nhiệt tình và kiên nhẫn. "
