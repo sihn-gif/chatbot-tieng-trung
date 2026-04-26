@@ -16,7 +16,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- TÍNH NĂNG MỚI: Tự động reset chat nếu đổi cấp độ ---
+# --- Tự động reset chat nếu đổi cấp độ ---
 if "current_level" not in st.session_state:
     st.session_state.current_level = level
 
@@ -35,7 +35,7 @@ except Exception as e:
     st.error(f"⚠️ Lỗi cấu hình API Key: {e}\n\nVào Manage app → Settings → Secrets để thêm GEMINI_API_KEY.")
     st.stop()
 
-# 4. Prompt hệ thống
+# 4. Prompt hệ thống (Đóng vai giáo viên)
 SYSTEM_PROMPT = (
     "Bạn là giáo viên dạy tiếng Trung Quốc (Mandarin) nhiệt tình và kiên nhẫn. "
     "Học viên cấp độ: " + level + ". "
@@ -60,8 +60,9 @@ if "messages" not in st.session_state:
 # 6. Khởi tạo Model và Lịch sử Chat
 if "chat" not in st.session_state:
     try:
+        # ĐÃ SỬA THÀNH gemini-1.5-flash Ở ĐÂY ĐỂ TRÁNH LỖI QUOTA
         model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash", # Hoặc gemini-1.5-flash nếu 2.0 báo lỗi
+            model_name="gemini-1.5-flash", 
             system_instruction=SYSTEM_PROMPT
         )
         st.session_state.chat = model.start_chat(history=[])
@@ -94,9 +95,7 @@ if prompt := st.chat_input("Nhập tin nhắn bằng tiếng Việt hoặc tiế
                 st.session_state.messages.append({"role": "assistant", "content": reply})
                 
             except Exception as e:
-                # SỬA LỖI Ở ĐÂY: In ra lỗi thật sự để bắt bệnh
+                # In ra lỗi nếu Google API gặp sự cố
                 error_msg = f"⚠️ Lỗi gọi API Gemini: {str(e)}"
                 st.error(error_msg)
-                
-                # Cảnh báo thêm cho người dùng dễ hiểu
                 st.warning("Nếu lỗi có chữ 'API_KEY_INVALID' -> Bạn điền sai API Key. \nNếu có chữ '429' hoặc 'Quota' -> Bạn đã hết lượt dùng miễn phí API Key này hôm nay.")
