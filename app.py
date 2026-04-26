@@ -2,49 +2,71 @@ import streamlit as st
 import google.generativeai as genai
 
 st.set_page_config(page_title="Học Tiếng Trung AI", page_icon="🏮")
-
 st.title("🏮 Chatbot Học Tiếng Trung")
 
-# Sidebar chọn cấp độ
 with st.sidebar:
     st.header("Cài đặt")
     level = st.selectbox("Cấp độ của bạn:", 
         ["Mới bắt đầu", "HSK 1", "HSK 2", "HSK 3", "HSK 4+"])
     if st.button("🔄 Bắt đầu lại"):
-        st.session_state.messages = []
+        for key in ["messages", "chat"]:
+            if key in st.session_state:
+                del st.session_state[key]
         st.rerun()
 
-# Cấu hình Gemini
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+try:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+except Exception:
+    st.error("Thiếu GEMINI_API_KEY trong Secrets. Vào Manage app → Secrets để thêm vào.")
+    st.stop()
 
-SYSTEM_PROMPT = f"""Bạn là giáo viên dạy tiếng Trung nhiệt tình. Học viên cấp độ: {level}.
-- Mỗi câu tiếng Trung LUÔN kèm Pinyin và dịch tiếng Việt
-- Sửa lỗi ngữ pháp nhẹ nhàng nếu học viên viết sai
-- Khi hỏi nghĩa từ: cung cấp Chữ Hán + Pinyin + Từ loại + Nghĩa + 2 ví dụ
-- Dùng từ vựng phù hợp cấp độ học viên"""
+SYSTEM_PROMPT = (
+    "Bạn là giáo viên dạy tiếng Trung Quốc (Mandarin) nhiệt tình và kiên nhẫn. "
+    "Học viên cấp độ: " + level + ". "
+    "Quy tắc bắt buộc: "
+    "1. Mỗi câu tiếng Trung LUÔN kèm Pinyin và dịch tiếng Việt theo định dạng: "
+    "[Câu tiếng Trung] | Pinyin: ... | Nghĩa: ... "
+    "2. Dùng từ vựng phù hợp cấp độ học viên. "
+    "3. Sửa lỗi ngữ pháp nhẹ nhàng và giải thích ngắn gọn nếu học viên viết sai. "
+    "4. Khi hỏi nghĩa từ: cung cấp Chữ Hán + Pinyin + Từ loại + Nghĩa tiếng Việt + 2 câu ví dụ. "
+    "5. Luôn khuyến khích và động viên học viên."
+)
 
-# Khởi tạo lịch sử chat
 if "messages" not in st.session_state:
-    st.session_state.messages = []
-    model = genai.GenerativeModel("gemini-2.0-flash", system_instruction=SYSTEM_PROMPT)
-    chat = model.start_chat()
-    response = chat.send_message("Hãy chào học viên và hỏi hôm nay muốn học gì.")
-    st.session_state.messages.append({"role": "assistant", "content": response.text})
-    st.session_state.chat = chat
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": "你好！(Nǐ hǎo!) — Xin chào! 😊\n\nHôm nay bạn muốn học chủ đề gì?\n- 🍜 Ẩm thực\n- ✈️ Du lịch\n- 💼 Công việc\n- 💬 Hội thoại cơ bản"
+        }
+    ]
 
-# Hiển thị lịch sử
+if "chat" not in st.session_state:
+    try:
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            system_instruction=SYSTEM_PROMPT
+        )
+        st.session_state.chat = model.start_chat(history=[])
+    except Exception as e:
+        st.error("Không khởi tạo được model. Kiểm tra API key.")
+        st.stop()
+
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Ô nhập tin nhắn
-if prompt := st.chat_input("Nhập tin nhắn..."):
+if prompt := st.chat_input("Nhập tin nhắn bằng tiếng Việt hoặc tiếng Trung..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
         with st.spinner("Đang trả lời..."):
-            response = st.session_state.chat.send_message(prompt)
-            st.markdown(response.text)
-    st.session_state.messages.append({"role": "assistant", "content": response.text})
+            try:
+                response = st.session_state.chat.send_message(prompt)
+                reply = response.text
+            except Exception as e:
+                reply = "⚠️ Có lỗi xảy ra. Có thể do API key hết quota hoặc mạng. Vui lòng thử lại sau."
+            st.markdown(reply)
+
+    st.session_state.messages.append({"role": "assistant", "content": reply})
