@@ -61,8 +61,8 @@ if "messages" not in st.session_state:
 if "chat" not in st.session_state:
     try:
         # ĐÃ SỬA THÀNH gemini-1.5-flash Ở ĐÂY ĐỂ TRÁNH LỖI QUOTA
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash", 
+model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash-latest", 
             system_instruction=SYSTEM_PROMPT
         )
         st.session_state.chat = model.start_chat(history=[])
