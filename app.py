@@ -31,6 +31,16 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**🕐 Lịch sử phiên học**")
 
+    # CSS hover effect cho nút xóa
+    st.markdown("""
+    <style>
+    div[data-testid="stHorizontalBlock"] {
+        gap: 4px;
+        align-items: center;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     try:
         sessions = supabase.table("chat_history") \
             .select("session_id, content, created_at") \
@@ -43,23 +53,36 @@ with st.sidebar:
             sid = row["session_id"]
             if sid not in seen:
                 seen.append(sid)
-
                 dt = datetime.fromisoformat(row["created_at"].replace("Z", ""))
                 date_str = dt.strftime("%d/%m/%Y %H:%M")
-                label = row["content"][:28] + "..." if len(row["content"]) > 28 else row["content"]
+                label = row["content"][:24] + "..." if len(row["content"]) > 24 else row["content"]
                 prefix = "▶ " if sid == session_id else ""
 
-                if st.button(
-                    f"{prefix}{label}\n🕐 {date_str}",
-                    key=f"sess_{sid}",
-                    use_container_width=True
-                ):
-                    st.session_state.session_id = sid
-                    st.session_state.messages = []
-                    st.rerun()
+                col1, col2 = st.columns([5, 1])
+                with col1:
+                    if st.button(
+                        f"{prefix}{label}\n🕐 {date_str}",
+                        key=f"sess_{sid}",
+                        use_container_width=True
+                    ):
+                        st.session_state.session_id = sid
+                        st.session_state.messages = []
+                        st.rerun()
+                with col2:
+                    if st.button("🗑️", key=f"del_{sid}", help="Xóa đoạn chat này"):
+                        # Xóa khỏi Supabase
+                        supabase.table("chat_history") \
+                            .delete() \
+                            .eq("session_id", sid) \
+                            .execute()
+                        # Nếu đang xem phiên này thì tạo phiên mới
+                        if sid == session_id:
+                            st.session_state.session_id = str(uuid.uuid4())
+                            st.session_state.messages = []
+                        st.rerun()
 
-    except Exception as e:
-        st.caption(f"Chưa có lịch sử.")
+    except Exception:
+        st.caption("Chưa có lịch sử.")
 
 SYSTEM_PROMPT = (
     "Bạn là giáo viên dạy tiếng Trung Quốc (Mandarin) nhiệt tình và kiên nhẫn. "
